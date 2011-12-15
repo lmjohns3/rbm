@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
     fig = glumpy.figure()
 
-    m = opts.binary and 1.5 or 0.5
+    m = opts.gaussian and 0.5 or 1.5
     visibles = [glumpy.image.Image(v) for v in _visibles]
     hiddens = glumpy.image.Image(_hiddens)
     weights = [glumpy.image.Image(w, vmin=-m, vmax=m) for w in _weights]
@@ -96,7 +96,7 @@ if __name__ == '__main__':
     loader = idx_reader.iterimages(opts.labels, opts.images, False)
 
     rbm = opts.model and pickle.load(open(opts.model, 'rb')) or lmj.rbm.RBM(
-        28 * 28, opts.n * opts.n, opts.binary)
+        28 * 28, opts.n * opts.n, not opts.gaussian)
 
     trainer = lmj.rbm.Trainer(
         rbm, l2=opts.l2, momentum=opts.momentum, target_sparsity=opts.sparsity)
@@ -124,7 +124,7 @@ if __name__ == '__main__':
         return pixels
 
     def flatten(pixels):
-        if opts.binary:
+        if not opts.gaussian:
             return pixels.reshape((1, 28 * 28)) > 30.
         r = numpy.array(recent)
         mu = r.mean(axis=0)
@@ -132,7 +132,7 @@ if __name__ == '__main__':
         return ((pixels - mu) / sigma).reshape((1, 28 * 28))
 
     def unflatten(flat):
-        if opts.binary:
+        if not opts.gaussian:
             return 256. * flat.reshape((28, 28))
         r = numpy.array(recent)
         mu = r.mean(axis=0)
