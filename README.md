@@ -33,12 +33,12 @@ Then install glumpy :
 
 Then run the test :
 
-    python test/images.py -i train-images.ubyte -l train-labels.ubyte
+    python test/mnist.py -i train-images.ubyte -l train-labels.ubyte
     
 If you're feeling overconfident, go ahead and try out the gaussian visible
 units :
 
-    python test/images.py \
+    python test/mnist.py \
       --images train-images.ubyte \
       --labels train-labels.ubyte \
       --batch-size 257 \
