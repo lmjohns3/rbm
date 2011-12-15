@@ -14,34 +14,39 @@ find it instructive, and maybe even useful !
 
 Just install using the included setup script :
 
-  python setup.py install
+    python setup.py install
 
 Or you can install the package from the internets using pip :
 
-  pip install lmj.rbm
+    pip install lmj.rbm
 
 ## Testing
 
 To try things out, download the MNIST digits dataset :
 
-  curl http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz | gunzip -c > train-images.ubyte
-  curl http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz | gunzip -c > train-labels.ubyte
+    curl http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz | gunzip -c > train-images.ubyte
+    curl http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz | gunzip -c > train-labels.ubyte
 
 Then install glumpy :
 
-  pip install glumpy
+    pip install glumpy
 
 Then run the test :
 
-  python test/images.py \
-    --images train-images.ubyte \
-    --labels train-labels.ubyte \
-    --batch-size 257 \
-    --l2 0.0001 \
-    --alpha 0.2 \
-    --momentum 0.5 \
-    --tau 1000 \
-    --sparsity 0.01
+    python test/images.py -i train-images.ubyte -l train-labels.ubyte
+    
+If you're feeling overconfident, go ahead and try out the gaussian visible
+units :
+
+    python test/images.py \
+      --images train-images.ubyte \
+      --labels train-labels.ubyte \
+      --batch-size 257 \
+      --l2 0.0001 \
+      --learning-rate 0.2 \
+      --momentum 0.5 \
+      --sparsity 0.01 \
+      --gaussian
 
 The learning parameters are squirrely, but if things go right you should see a
 number of images show up on your screen that represent the "basis functions"
