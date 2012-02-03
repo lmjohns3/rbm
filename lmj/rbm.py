@@ -398,7 +398,7 @@ class Convolutional(RBM):
         self.num_filters = num_filters
 
         self.weights = scale * rng.randn(num_filters, *filter_shape)
-        self.vis_bias = scale * rng.randn()
+        self.vis_bias = scale * rng.randn(1)
         self.hid_bias = 2 * scale * rng.randn(num_filters)
 
         self._visible = binary and sigmoid or identity
