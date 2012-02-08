@@ -1,14 +1,17 @@
-# lmj.rbm
+# py-rbm
 
 This is a small Python library that contains code for using and training
 Restricted Boltzmann Machines (RBMs), the basic building blocks for many types
 of deep belief networks. Variations available include the "standard" RBM (with
 optional sparsity-based hidden layer learning); the temporal net introduced by
-Taylor, Hinton & Roweis; and convolutional nets with probabilistic max-pooling
-described by Lee, Grosse, Ranganath & Ng.
+[Taylor, Hinton & Roweis][]; and convolutional nets with probabilistic
+max-pooling described by [Lee, Grosse, Ranganath & Ng][].
 
 Mostly the code is being used for research in our lab. Hopefully others will
 find it instructive, and maybe even useful !
+
+[Taylor, Hinton & Roweis]: http://www.cs.nyu.edu/~gwtaylor/publications/nips2006mhmublv/
+[Lee, Grosse, Ranganath & Ng]: http://cacm.acm.org/magazines/2011/10/131415-unsupervised-learning-of-hierarchical-representations-with-convolutional-deep-belief-networks/fulltext
 
 ## Installation
 
@@ -22,36 +25,34 @@ Or you can install the package from the internets using pip :
 
 ## Testing
 
-To try things out, download the MNIST digits dataset :
-
-    curl http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz | gunzip -c > train-images.ubyte
-    curl http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz | gunzip -c > train-labels.ubyte
-
-Then install glumpy :
+This library is definitely very alpha; so far I just have one main test that
+encodes image data. To try things out, first install glumpy :
 
     pip install glumpy
 
 Then run the test :
 
-    python test/mnist.py -i train-images.ubyte -l train-labels.ubyte
-    
+    python test/images.py /path/to/my/images*.jpg
+
 If you're feeling overconfident, go ahead and try out the gaussian visible
 units :
 
-    python test/mnist.py \
-      --images train-images.ubyte \
-      --labels train-labels.ubyte \
+    python test/images.py \
       --batch-size 257 \
       --l2 0.0001 \
       --learning-rate 0.2 \
       --momentum 0.5 \
       --sparsity 0.01 \
-      --gaussian
+      --gaussian /path/to/my/images*.jpg
 
 The learning parameters are squirrely, but if things go right you should see a
 number of images show up on your screen that represent the "basis functions"
 that the network has learned when trying to auto-encode the images you are
 feeding it.
+
+Please fork and contribute if you find this code at all useful !
+
+[glumpy]: http://code.google.com/p/glumpy/
 
 ## License
 
