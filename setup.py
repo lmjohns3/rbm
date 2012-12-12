@@ -1,20 +1,21 @@
+import os
 import setuptools
 
 setuptools.setup(
     name='lmj.rbm',
-    version='0.1',
-    py_modules=['lmj.rbm'],
+    version='0.1.1',
     namespace_packages=['lmj'],
-    install_requires=['numpy'],
+    packages=setuptools.find_packages(),
     author='Leif Johnson',
     author_email='leif@leifjohnson.net',
     description='A library of Restricted Boltzmann Machines',
-    long_description=open('README.md').read(),
+    long_description=open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'README.md')).read(),
     license='MIT',
+    url='http://github.com/lmjohns3/py-rbm/',
     keywords=('deep-belief-network '
               'restricted-boltzmann-machine '
               'machine-learning'),
-    url='http://github.com/lmjohns3/py-rbm/',
+    install_requires=['numpy'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
