@@ -33,11 +33,13 @@ The convolutional RBM code is based on the 2009 ICML paper by Lee, Grosse,
 Ranganath and Ng, "Convolutional Deep Belief Networks for Scalable Unsupervised
 Learning of Hierarchical Representations".
 
+The mean-covariance RBM is based on XXX.
+
 All implementations incorporate an option to train hidden unit biases using a
 sparsity criterion, as described in the 2008 NIPS paper by Lee, Ekanadham and
 Ng, "Sparse Deep Belief Net Model for Visual Area V2".
 
-All RBM implementations also provide an option to treat visible units as either
+Most RBM implementations  provide an option to treat visible units as either
 binary or gaussian. Training networks with gaussian visible units is a tricky
 dance of parameter-twiddling, but binary units seem quite stable in their
 learning and convergence properties.
@@ -94,10 +96,11 @@ class RBM(object):
         num_hidden: The number of hidden units.
         binary: True if the visible units are binary, False if the visible units
           are normally distributed.
+        scale: Sample initial weights from N(0, scale).
         '''
         self.weights = scale * rng.randn(num_hidden, num_visible)
-        self.hid_bias = 2 * scale * rng.randn(num_hidden)
-        self.vis_bias = scale * rng.randn(num_visible)
+        self.hid_bias = scale * rng.randn(num_hidden, 1)
+        self.vis_bias = scale * rng.randn(num_visible, 1)
 
         self._visible = binary and sigmoid or identity
 
@@ -140,29 +143,6 @@ class RBM(object):
         for i, (visible, _) in enumerate(self.iter_passes(visible)):
             if i + 1 == passes:
                 return visible
-
-    def plot(self, fig):
-        '''Given a figure, plot the parameters (weights and bias) of this RBM.
-        '''
-        T = self.order
-
-        ax = fig.add_subplot(6, 1, 1)
-        ax.imshow(self.weights)
-        ax.colorbar()
-        ax = fig.add_subplot(6, 1, 2)
-        ax.hist(self.weights)
-
-        ax = fig.add_subplot(6, 1, 3)
-        ax.imshow(self.bias_visible)
-        ax.colorbar()
-        ax = fig.add_subplot(6, 1, 4)
-        ax.hist(self.bias_visible)
-
-        ax = fig.add_subplot(6, 1, 5)
-        ax.imshow(self.bias_hidden)
-        ax.colorbar()
-        ax = fig.add_subplot(6, 1, 6)
-        ax.hist(self.bias_hidden)
 
 
 class Trainer(object):
@@ -234,7 +214,8 @@ class Temporal(RBM):
     def __init__(self, num_visible, num_hidden, order, binary=True, scale=0.001):
         '''
         '''
-        super(TemporalRBM, self).__init__(num_visible, num_hidden, binary=binary, scale=scale)
+        super(TemporalRBM, self).__init__(
+            num_visible, num_hidden, binary=binary, scale=scale)
 
         self.order = order
 
@@ -268,42 +249,6 @@ class Temporal(RBM):
             visible = self.visible_expectation(bernoulli(hidden), sum(vis_dyn_bias))
             vis_dyn_bias.append(numpy.dot(vdb, visible))
             hid_dyn_bias.append(numpy.dot(hdb, visible))
-
-    def plot(self, fig):
-        '''
-        '''
-        T = self.order
-
-        ax = fig.add_subplot(6, T + 1, 0 * T + 1)
-        ax.imshow(self.weights)
-        ax.colorbar()
-        ax = fig.add_subplot(6, T + 1, 1 * T + 1)
-        ax.hist(self.weights)
-
-        ax = fig.add_subplot(6, T + 1, 2 * T + 1)
-        ax.imshow(self.bias_visible)
-        ax.colorbar()
-        ax = fig.add_subplot(6, T + 1, 3 * T + 1)
-        ax.hist(self.bias_visible)
-
-        ax = fig.add_subplot(6, T + 1, 4 * T + 1)
-        ax.imshow(self.bias_hidden)
-        ax.colorbar()
-        ax = fig.add_subplot(6, T + 1, 5 * T + 1)
-        ax.hist(self.bias_hidden)
-
-        for t in range(T):
-            ax = fig.add_subplot(6, T + 1, 1 * t * T + 2)
-            ax.imshow(self.vis_dyn_bias[t])
-            ax.colorbar()
-            ax = fig.add_subplot(6, T + 1, 2 * t * T + 2)
-            ax.hist(self.vis_dyn_bias[t])
-
-            ax = fig.add_subplot(6, T + 1, 1 * t * T + 3)
-            ax.imshow(self.hid_dyn_bias[t])
-            ax.colorbar()
-            ax = fig.add_subplot(6, T + 1, 2 * t * T + 3)
-            ax.hist(self.hid_dyn_bias[t])
 
 
 class TemporalTrainer(Trainer):
@@ -398,8 +343,8 @@ class Convolutional(RBM):
         self.num_filters = num_filters
 
         self.weights = scale * rng.randn(num_filters, *filter_shape)
-        self.vis_bias = scale * rng.randn(1)
-        self.hid_bias = 2 * scale * rng.randn(num_filters)
+        self.vis_bias = scale * rng.randn()
+        self.hid_bias = scale * rng.randn(num_filters)
 
         self._visible = binary and sigmoid or identity
         self._pool_shape = pool_shape
@@ -471,3 +416,51 @@ class ConvolutionalTrainer(Trainer):
                       numpy.linalg.norm(gv), h0.mean(axis=-1).mean(axis=-1).std())
 
         return gw, gv, gh
+
+
+class MeanCovariance(RBM):
+    '''
+    '''
+
+    def __init__(self, num_visible, num_mean, num_precision, scale=0.001):
+        '''Initialize a mean-covariance restricted boltzmann machine.
+
+        num_visible: The number of visible units.
+        num_mean: The number of units in the hidden mean vector.
+        num_precision: The number of units in the hidden precision vector.
+        '''
+        super(MeanCovariance, self).__init__(
+            num_visible, num_mean, binary=False, scale=scale)
+
+        # replace the hidden bias to reflect the precision units.
+        self.hid_bias = scale * rng.randn(num_precision, 1)
+
+        self.hid_mean = scale * rng.randn(num_mean, 1)
+
+        self.hid_factor_u = scale * -abs(rng.randn(num_precision - 1))
+        self.hid_factor_c = scale * -abs(rng.randn(num_precision))
+        self.hid_factor_l = scale * -abs(rng.randn(num_precision - 1))
+
+        self.vis_factor = scale * rng.randn(num_visible, num_precision)
+
+    @property
+    def hid_factor(self):
+        return (numpy.diag(self.hid_factor_u, 1) +
+                numpy.diag(self.hid_factor_c, 0) +
+                numpy.diag(self.hid_factor_l, -1))
+
+    def hidden_expectation(self, visible):
+        '''Given visible data, return the expected hidden unit values.'''
+        z = numpy.dot(visible.T, self.vis_factor)
+        return sigmoid(numpy.dot(z * z, self.hid_factor).T + self.hid_bias)
+
+    def visible_expectation(self, hidden):
+        '''Given hidden states, return the expected visible unit values.'''
+        z = numpy.diag(numpy.dot(-self.hid_factor.T, hidden))
+        Sinv = numpy.dot(self.vis_factor, numpy.dot(z, self.vis_factor.T))
+        return numpy.dot(numpy.dot(numpy.pinv(Sinv), self.weights), self.hid_mean)
+
+
+class MeanCovarianceTrainer(Trainer):
+    '''
+    '''
