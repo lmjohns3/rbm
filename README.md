@@ -7,11 +7,15 @@ optional sparsity-based hidden layer learning); the temporal net introduced by
 [Taylor, Hinton & Roweis][]; and convolutional nets with probabilistic
 max-pooling described by [Lee, Grosse, Ranganath & Ng][].
 
-Mostly the code is being used for research in our lab. Hopefully others will
-find it instructive, and maybe even useful !
+Mostly I wrote the code to better understand the underlying algorithms. I don't
+use it for anything at the moment, having moved on to using primarily [Theano][]
+with [networks of rectified linear neurons][http://www.csri.utoronto.ca/~hinton/absps/reluICML.pdf]
+(PDF). Still, there seems to be some interest in RBMs, so hopefully others will
+find this package instructive, and maybe even useful !
 
 [Taylor, Hinton & Roweis]: http://www.cs.nyu.edu/~gwtaylor/publications/nips2006mhmublv/
 [Lee, Grosse, Ranganath & Ng]: http://cacm.acm.org/magazines/2011/10/131415-unsupervised-learning-of-hierarchical-representations-with-convolutional-deep-belief-networks/fulltext
+[Theano]: http://deeplearning.net/software/theano/
 
 ## Installation
 
@@ -26,31 +30,43 @@ Or you can install the package from the internets using pip :
 ## Testing
 
 This library is definitely very alpha; so far I just have one main test that
-encodes image data. To try things out, first install glumpy :
+encodes image data. To try things out, clone the source for this package and
+install [glumpy][] :
 
     pip install glumpy
 
-Then run the test :
+Then download the MNIST digits data from http://yann.lecun.com/exdb/mnist/ --
+you'll need both the `train-*-images.ubyte.gz` and `train-*-labels.ubyte.gz`
+files. Then run the test :
 
-    python test/images.py /path/to/my/images*.jpg
+    python test/mnist.py \
+      --images *-images.ubyte.gz \
+      --labels *-labels.ubyte.gz
 
 If you're feeling overconfident, go ahead and try out the gaussian visible
 units :
 
-    python test/images.py \
+    python test/mnist.py \
+      --images *-images.ubyte.gz \
+      --labels *-labels.ubyte.gz \
       --batch-size 257 \
       --l2 0.0001 \
       --learning-rate 0.2 \
       --momentum 0.5 \
       --sparsity 0.01 \
-      --gaussian /path/to/my/images*.jpg
+      --gaussian
 
-The learning parameters are squirrely, but if things go right you should see a
-number of images show up on your screen that represent the "basis functions"
-that the network has learned when trying to auto-encode the images you are
-feeding it.
+The learning parameters can be a bit squirrely, but if things go right you
+should see a number of images show up on your screen that represent the "basis
+functions" that the network has learned when trying to auto-encode the MNIST
+images you are feeding it.
 
-Please fork and contribute if you find this code at all useful !
+You can also try running the test script with `--conv` to try out a
+convolutional filterbank, but I'm not confident that the conv net test is
+working correctly. Anyway, if you're thinking of using conv nets for a project,
+please have a look at [Theano], or for a highly-tuned GPU/C++ implementation,
+https://code.google.com/p/cuda-convnet/ (by
+[Alex Krizhevsky][www.cs.toronto.edu/~kriz/]).
 
 [glumpy]: http://code.google.com/p/glumpy/
 
