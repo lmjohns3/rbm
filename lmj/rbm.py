@@ -45,13 +45,13 @@ dance of parameter-twiddling, but binary units seem quite stable in their
 learning and convergence properties.
 '''
 
-import numpy
+import numpy as np
 import logging
 import numpy.random as rng
 
 
 def sigmoid(eta):
-    return 1. / (1. + numpy.exp(-eta))
+    return 1. / (1. + np.exp(-eta))
 
 
 def identity(eta):
@@ -114,11 +114,11 @@ class RBM(object):
 
     def hidden_expectation(self, visible, bias=0.):
         '''Given visible data, return the expected hidden unit values.'''
-        return sigmoid(numpy.dot(self.weights, visible.T).T + self.hid_bias + bias)
+        return sigmoid(np.dot(self.weights, visible.T).T + self.hid_bias + bias)
 
     def visible_expectation(self, hidden, bias=0.):
         '''Given hidden states, return the expected visible unit values.'''
-        return self._visible(numpy.dot(hidden, self.weights) + self.vis_bias + bias)
+        return self._visible(np.dot(hidden, self.weights) + self.vis_bias + bias)
 
     def iter_passes(self, visible):
         '''Repeatedly pass the given visible layer up and then back down.
@@ -157,9 +157,9 @@ class Trainer(object):
         self.l2 = l2
         self.target_sparsity = target_sparsity
 
-        self.grad_weights = numpy.zeros(rbm.weights.shape, float)
-        self.grad_vis = numpy.zeros(rbm.vis_bias.shape, float)
-        self.grad_hid = numpy.zeros(rbm.hid_bias.shape, float)
+        self.grad_weights = np.zeros(rbm.weights.shape, float)
+        self.grad_vis = np.zeros(rbm.vis_bias.shape, float)
+        self.grad_hid = np.zeros(rbm.hid_bias.shape, float)
 
     def learn(self, visible, learning_rate=0.2):
         '''
@@ -179,14 +179,14 @@ class Trainer(object):
         v0, h0 = passes.next()
         v1, h1 = passes.next()
 
-        gw = (numpy.dot(h0.T, v0) - numpy.dot(h1.T, v1)) / len(visible_batch)
+        gw = (np.dot(h0.T, v0) - np.dot(h1.T, v1)) / len(visible_batch)
         gv = (v0 - v1).mean(axis=0)
         gh = (h0 - h1).mean(axis=0)
         if self.target_sparsity is not None:
             gh = self.target_sparsity - h0.mean(axis=0)
 
-        logging.debug('error: %.3g, hidden std: %.3g',
-                      numpy.linalg.norm(gv), h0.std(axis=1).mean())
+        logging.debug('displacement: %.3g, hidden std: %.3g',
+                      np.linalg.norm(gv), h0.std(axis=1).mean())
 
         return gw, gv, gh
 
@@ -234,12 +234,12 @@ class Temporal(RBM):
         '''
         vdb = self.vis_dyn_bias[0]
         vis_dyn_bias = collections.deque(
-            [numpy.dot(self.vis_dyn_bias[i], f).T for i, f in enumerate(frames)],
+            [np.dot(self.vis_dyn_bias[i], f).T for i, f in enumerate(frames)],
             maxlen=self.order)
 
         hdb = self.hid_dyn_bias[0]
         hid_dyn_bias = collections.deque(
-            [numpy.dot(self.hid_dyn_bias[i], f).T for i, f in enumerate(frames)],
+            [np.dot(self.hid_dyn_bias[i], f).T for i, f in enumerate(frames)],
             maxlen=self.order)
 
         visible = frames[0]
@@ -247,8 +247,8 @@ class Temporal(RBM):
             hidden = self.hidden_expectation(visible, sum(hid_dyn_bias))
             yield visible, hidden
             visible = self.visible_expectation(bernoulli(hidden), sum(vis_dyn_bias))
-            vis_dyn_bias.append(numpy.dot(vdb, visible))
-            hid_dyn_bias.append(numpy.dot(hdb, visible))
+            vis_dyn_bias.append(np.dot(vdb, visible))
+            hid_dyn_bias.append(np.dot(hdb, visible))
 
 
 class TemporalTrainer(Trainer):
@@ -259,8 +259,8 @@ class TemporalTrainer(Trainer):
         '''
         '''
         super(TemporalTrainer, self).__init__(rbm, momentum, l2, target_sparsity)
-        self.grad_dyn_vis = numpy.zeros(rbm.hid_dyn_bias.shape, float)
-        self.grad_dyn_hid = numpy.zeros(rbm.hid_dyn_bias.shape, float)
+        self.grad_dyn_vis = np.zeros(rbm.hid_dyn_bias.shape, float)
+        self.grad_dyn_hid = np.zeros(rbm.hid_dyn_bias.shape, float)
 
     def calculate_gradients(self, frames_batch):
         '''Calculate gradients using contrastive divergence.
@@ -279,28 +279,28 @@ class TemporalTrainer(Trainer):
         order, _, batch_size = frames_batch.shape
         assert order == self.rbm.order
 
-        vis_bias = sum(numpy.dot(self.rbm.vis_dyn_bias[i], f).T for i, f in enumerate(frames_batch))
-        hid_bias = sum(numpy.dot(self.rbm.hid_dyn_bias[i], f).T for i, f in enumerate(frames_batch))
+        vis_bias = sum(np.dot(self.rbm.vis_dyn_bias[i], f).T for i, f in enumerate(frames_batch))
+        hid_bias = sum(np.dot(self.rbm.hid_dyn_bias[i], f).T for i, f in enumerate(frames_batch))
 
         v0 = frames_batch[0].T
         h0 = self.rbm.hidden_expectation(v0, hid_bias)
         v1 = self.rbm.visible_expectation(bernoulli(h0), vis_bias)
         h1 = self.rbm.hidden_expectation(v1, hid_bias)
 
-        gw = (numpy.dot(h0.T, v0) - numpy.dot(h1.T, v1)) / batch_size
+        gw = (np.dot(h0.T, v0) - np.dot(h1.T, v1)) / batch_size
         gv = (v0 - v1).mean(axis=0)
         gh = (h0 - h1).mean(axis=0)
 
-        gvd = numpy.zeros(self.rbm.vis_dyn_bias.shape, float)
-        ghd = numpy.zeros(self.rbm.hid_dyn_bias.shape, float)
+        gvd = np.zeros(self.rbm.vis_dyn_bias.shape, float)
+        ghd = np.zeros(self.rbm.hid_dyn_bias.shape, float)
         v = v0 - self.rbm.vis_bias - vis_bias
         for i, f in enumerate(frames_batch):
-            gvd[i] += numpy.dot(v.T, f)
-            ghd[i] += numpy.dot(h0.T, f)
+            gvd[i] += np.dot(v.T, f)
+            ghd[i] += np.dot(h0.T, f)
         v = v1 - self.rbm.vis_bias - vis_bias
         for i, f in enumerate(frames_batch):
-            gvd[i] -= numpy.dot(v.T, f)
-            ghd[i] -= numpy.dot(h1.T, f)
+            gvd[i] -= np.dot(v.T, f)
+            ghd[i] -= np.dot(h1.T, f)
 
         return gw, gv, gh, gvd, ghd
 
@@ -353,25 +353,25 @@ class Convolutional(RBM):
         '''Given activity in the hidden units, pool it into groups.'''
         _, r, c = hidden.shape
         rows, cols = self._pool_shape
-        active = numpy.exp(hidden.T)
-        pool = numpy.zeros(active.shape, float)
-        for j in range(int(numpy.ceil(float(c) / cols))):
+        active = np.exp(hidden.T)
+        pool = np.zeros(active.shape, float)
+        for j in range(int(np.ceil(float(c) / cols))):
             cslice = slice(j * cols, (j + 1) * cols)
-            for i in range(int(numpy.ceil(float(r) / rows))):
+            for i in range(int(np.ceil(float(r) / rows))):
                 mask = (cslice, slice(i * rows, (i + 1) * rows))
                 pool[mask] = active[mask].sum(axis=0).sum(axis=0)
         return pool.T
 
     def pooled_expectation(self, visible, bias=0.):
         '''Given visible data, return the expected pooling unit values.'''
-        activation = numpy.exp(numpy.array([
+        activation = np.exp(np.array([
             convolve(visible, self.weights[k, ::-1, ::-1], 'valid')
             for k in range(self.num_filters)]).T + self.hid_bias + bias).T
         return 1. - 1. / (1. + self._pool(activation))
 
     def hidden_expectation(self, visible, bias=0.):
         '''Given visible data, return the expected hidden unit values.'''
-        activation = numpy.exp(numpy.array([
+        activation = np.exp(np.array([
             convolve(visible, self.weights[k, ::-1, ::-1], 'valid')
             for k in range(self.num_filters)]).T + self.hid_bias + bias).T
         return activation / (1. + self._pool(activation))
@@ -403,7 +403,7 @@ class ConvolutionalTrainer(Trainer):
         # h0.shape == h1.shape == (num_filters, visible_rows - filter_rows + 1, visible_columns - filter_columns + 1)
         # v0.shape == v1.shape == (visible_rows, visible_columns)
 
-        gw = numpy.array([
+        gw = np.array([
             convolve(v0, h0[k, ::-1, ::-1], 'valid') -
             convolve(v1, h1[k, ::-1, ::-1], 'valid')
             for k in range(self.rbm.num_filters)])
@@ -412,8 +412,8 @@ class ConvolutionalTrainer(Trainer):
         if self.target_sparsity is not None:
             h = self.target_sparsity - self.rbm.hidden_expectation(visible).mean(axis=-1).mean(axis=-1)
 
-        logging.debug('error: %.3g, hidden acts: %.3g',
-                      numpy.linalg.norm(gv), h0.mean(axis=-1).mean(axis=-1).std())
+        logging.debug('displacement: %.3g, hidden activations: %.3g',
+                      np.linalg.norm(gv), h0.mean(axis=-1).mean(axis=-1).std())
 
         return gw, gv, gh
 
