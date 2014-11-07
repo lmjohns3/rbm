@@ -25,13 +25,12 @@ and Roweis, and described in their 2006 NIPS paper, "Modeling Human Motion Using
 Binary Hidden Variables". Their code and results are available online at
 http://www.cs.nyu.edu/~gwtaylor/publications/nips2006mhmublv/.
 
-There are more RBM implementations in this module, though. The basic
-(non-Temporal) RBM is based on the Taylor, Hinton, and Roweis code, but stripped
-of the dynamic bias terms and refactored into an object-oriented style.
-
-The convolutional RBM code is based on the 2009 ICML paper by Lee, Grosse,
-Ranganath and Ng, "Convolutional Deep Belief Networks for Scalable Unsupervised
-Learning of Hierarchical Representations".
+There are more RBM implementations in this module than just the Taylor
+"conditional RBM," though. The basic (non-Temporal) RBM is based on the Taylor,
+Hinton, and Roweis code, but stripped of the dynamic bias terms and refactored
+into an object-oriented style. The convolutional RBM code is based on the 2009
+ICML paper by Lee, Grosse, Ranganath and Ng, "Convolutional Deep Belief Networks
+for Scalable Unsupervised Learning of Hierarchical Representations".
 
 All implementations incorporate an option to train hidden unit biases using a
 sparsity criterion, as described in the 2008 NIPS paper by Lee, Ekanadham and
@@ -41,6 +40,13 @@ All RBM implementations also provide an option to treat visible units as either
 binary or gaussian. Training networks with gaussian visible units is a tricky
 dance of parameter-twiddling, but binary units seem quite stable in their
 learning and convergence properties.
+
+Finally, although I have tried to ensure that the code is correct, there are
+probably many bugs, all of which are my own doing. I wrote this code to get a
+better intuitive understanding for the RBM family of machine learning
+algorithms, but I do not claim that the code is useful for a particular purpose
+or produces state-of-the-art results. Mostly I hope that this code is readable
+so that others can use it to better understand how this whole RBM thing works.
 '''
 
 import numpy as np
@@ -49,51 +55,92 @@ import numpy.random as rng
 
 
 def sigmoid(eta):
+    '''Return the logistic sigmoid function of the argument.'''
     return 1. / (1. + np.exp(-eta))
 
 
 def identity(eta):
+    '''Return the identity function of the argument.'''
     return eta
 
 
 def bernoulli(p):
+    '''Return an array of boolean samples from Bernoulli(p).
+
+    Arguments
+    ---------
+    p : ndarray
+        This array should contain values in [0, 1].
+
+    Returns
+    -------
+    An array of the same shape as p. Each value in the result will be a boolean
+    indicating whether a single Bernoulli trial succeeded for the corresponding
+    element of `p`.
+    '''
     return rng.rand(*p.shape) < p
 
 
 class RBM(object):
-    '''A restricted boltzmann machine is a type of neural network auto-encoder.
+    '''A Restricted Boltzmann Machine (RBM) is a probabilistic model of data.
 
-    RBMs have two layers of neurons (here called "units"), a "visible" layer
-    that receives data from the world, and a "hidden" layer that receives data
-    from the visible layer. The visible and hidden units form a fully connected
-    bipartite graph. To encode a signal,
+    RBMs have two layers of variables (here called "units," in keeping with
+    neural network terminology) -- a "visible" layer that models data in the
+    world, and a "hidden" layer that is imagined to generate the data in the
+    visible layer. RBMs are inspired by the (unrestricted) Boltzmann Machine, a
+    model from statistical physics in which each unit is connected to all other
+    units, and the states of unobserved variables can be inferred by using a
+    sampling procedure.
+
+    The full connectivity of an unrestricted Boltzmann Machine makes inference
+    difficult, requiring sampling or some other approximate technique. RBMs
+    restrict this more general model by requiring that the visible and hidden
+    units form a fully connected, undirected, bipartite graph. In this way, each
+    of the visible units is independent from the other visible units when
+    conditioned on the state of the hidden layer, and each of the hidden units
+    is independent of the others when conditioned on the state of the visible
+    layer. This conditional independence makes inference tractable for the units
+    in a single RBM.
+
+    To "encode" a signal by determining the state of the hidden units given some
+    visible data ("signal"),
 
     1. the signal is presented to the visible units, and
     2. the states of the hidden units are sampled from the conditional
        distribution given the visible data.
 
-    To check the encoding,
+    To "decode" an encoding in the hidden units,
 
     3. the states of the visible units are sampled from the conditional
-       distribution given the states of the hidden units, and
+       distribution given the states of the hidden units.
+
+    Once a signal has been encoded and then decoded,
+
     4. the sampled visible units can be compared directly with the original
        visible data.
 
     Training takes place by presenting a number of data points to the network,
     encoding the data, reconstructing it from the hidden states, and encoding
     the reconstruction in the hidden units again. Then, using contrastive
-    divergence (Hinton 2002), the gradient is approximated using the
-    correlations between visible and hidden units in the first encoding and the
-    same correlations in the second encoding.
+    divergence (Hinton 2002; Hinton & Salakhutdinov 2006), the gradient is
+    approximated using the correlations between visible and hidden units in the
+    first encoding and the same correlations in the second encoding.
     '''
 
     def __init__(self, num_visible, num_hidden, binary=True, scale=0.001):
         '''Initialize a restricted boltzmann machine.
 
-        num_visible: The number of visible units.
-        num_hidden: The number of hidden units.
-        binary: True if the visible units are binary, False if the visible units
-          are normally distributed.
+        Arguments
+        ---------
+        num_visible : int
+            The number of visible units.
+
+        num_hidden : int
+            The number of hidden units.
+
+        binary : bool
+            True if the visible units are binary, False if the visible units are
+            normally distributed.
         '''
         self.weights = scale * rng.randn(num_hidden, num_visible)
         self.hid_bias = 2 * scale * rng.randn(num_hidden)
@@ -120,11 +167,16 @@ class RBM(object):
     def iter_passes(self, visible):
         '''Repeatedly pass the given visible layer up and then back down.
 
-        Generates the resulting sequence of (visible, hidden) states. The first
-        pair will be the (original visible, resulting hidden) states, followed
-        by the subsequent (visible down-pass, hidden up-pass) pairs.
+        Arguments
+        ---------
+        visible : ndarray
+            The initial state of the visible layer.
 
-        visible: The initial state of the visible layer.
+        Returns
+        -------
+        Generates a sequence of (visible, hidden) states. The first pair will be
+        the (original visible, resulting hidden) states, followed by pairs
+        containing the values from (visible down-pass, hidden up-pass).
         '''
         while True:
             hidden = self.hidden_expectation(visible)
@@ -134,8 +186,18 @@ class RBM(object):
     def reconstruct(self, visible, passes=1):
         '''Reconstruct a given visible layer through the hidden layer.
 
-        visible: The initial state of the visible layer.
-        passes: The number of up- and down-passes.
+        Arguments
+        ---------
+        visible : ndarray
+            The initial state of the visible layer.
+
+        passes : int
+            The number of up- and down-passes.
+
+        Returns
+        -------
+        An array containing the reconstructed visible layer after the specified
+        number of up- and down- passes.
         '''
         for i, (visible, _) in enumerate(self.iter_passes(visible)):
             if i + 1 == passes:
