@@ -32,11 +32,13 @@ into an object-oriented style. The convolutional RBM code is based on the 2009
 ICML paper by Lee, Grosse, Ranganath and Ng, "Convolutional Deep Belief Networks
 for Scalable Unsupervised Learning of Hierarchical Representations".
 
+The mean-covariance RBM is based on XXX.
+
 All implementations incorporate an option to train hidden unit biases using a
 sparsity criterion, as described in the 2008 NIPS paper by Lee, Ekanadham and
 Ng, "Sparse Deep Belief Net Model for Visual Area V2".
 
-All RBM implementations also provide an option to treat visible units as either
+Most RBM implementations  provide an option to treat visible units as either
 binary or gaussian. Training networks with gaussian visible units is a tricky
 dance of parameter-twiddling, but binary units seem quite stable in their
 learning and convergence properties.
@@ -67,8 +69,8 @@ def identity(eta):
 def bernoulli(p):
     '''Return an array of boolean samples from Bernoulli(p).
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     p : ndarray
         This array should contain values in [0, 1].
 
@@ -130,8 +132,8 @@ class RBM(object):
     def __init__(self, num_visible, num_hidden, binary=True, scale=0.001):
         '''Initialize a restricted boltzmann machine.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         num_visible : int
             The number of visible units.
 
@@ -141,10 +143,13 @@ class RBM(object):
         binary : bool
             True if the visible units are binary, False if the visible units are
             normally distributed.
+
+        scale : float
+            Sample initial weights from N(0, scale).
         '''
         self.weights = scale * rng.randn(num_hidden, num_visible)
-        self.hid_bias = 2 * scale * rng.randn(num_hidden)
-        self.vis_bias = scale * rng.randn(num_visible)
+        self.hid_bias = scale * rng.randn(num_hidden, 1)
+        self.vis_bias = scale * rng.randn(num_visible, 1)
 
         self._visible = binary and sigmoid or identity
 
@@ -167,8 +172,8 @@ class RBM(object):
     def iter_passes(self, visible):
         '''Repeatedly pass the given visible layer up and then back down.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         visible : ndarray
             The initial state of the visible layer.
 
@@ -186,8 +191,8 @@ class RBM(object):
     def reconstruct(self, visible, passes=1):
         '''Reconstruct a given visible layer through the hidden layer.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         visible : ndarray
             The initial state of the visible layer.
 
@@ -273,7 +278,8 @@ class Temporal(RBM):
     def __init__(self, num_visible, num_hidden, order, binary=True, scale=0.001):
         '''
         '''
-        super(TemporalRBM, self).__init__(num_visible, num_hidden, binary=binary, scale=scale)
+        super(TemporalRBM, self).__init__(
+            num_visible, num_hidden, binary=binary, scale=scale)
 
         self.order = order
 
@@ -401,8 +407,8 @@ class Convolutional(RBM):
         self.num_filters = num_filters
 
         self.weights = scale * rng.randn(num_filters, *filter_shape)
-        self.vis_bias = scale * rng.randn(1)
-        self.hid_bias = 2 * scale * rng.randn(num_filters)
+        self.vis_bias = scale * rng.randn()
+        self.hid_bias = scale * rng.randn(num_filters)
 
         self._visible = binary and sigmoid or identity
         self._pool_shape = pool_shape
@@ -474,3 +480,51 @@ class ConvolutionalTrainer(Trainer):
                       np.linalg.norm(gv), h0.mean(axis=-1).mean(axis=-1).std())
 
         return gw, gv, gh
+
+
+class MeanCovariance(RBM):
+    '''
+    '''
+
+    def __init__(self, num_visible, num_mean, num_precision, scale=0.001):
+        '''Initialize a mean-covariance restricted boltzmann machine.
+
+        num_visible: The number of visible units.
+        num_mean: The number of units in the hidden mean vector.
+        num_precision: The number of units in the hidden precision vector.
+        '''
+        super(MeanCovariance, self).__init__(
+            num_visible, num_mean, binary=False, scale=scale)
+
+        # replace the hidden bias to reflect the precision units.
+        self.hid_bias = scale * rng.randn(num_precision, 1)
+
+        self.hid_mean = scale * rng.randn(num_mean, 1)
+
+        self.hid_factor_u = scale * -abs(rng.randn(num_precision - 1))
+        self.hid_factor_c = scale * -abs(rng.randn(num_precision))
+        self.hid_factor_l = scale * -abs(rng.randn(num_precision - 1))
+
+        self.vis_factor = scale * rng.randn(num_visible, num_precision)
+
+    @property
+    def hid_factor(self):
+        return (numpy.diag(self.hid_factor_u, 1) +
+                numpy.diag(self.hid_factor_c, 0) +
+                numpy.diag(self.hid_factor_l, -1))
+
+    def hidden_expectation(self, visible):
+        '''Given visible data, return the expected hidden unit values.'''
+        z = numpy.dot(visible.T, self.vis_factor)
+        return sigmoid(numpy.dot(z * z, self.hid_factor).T + self.hid_bias)
+
+    def visible_expectation(self, hidden):
+        '''Given hidden states, return the expected visible unit values.'''
+        z = numpy.diag(numpy.dot(-self.hid_factor.T, hidden))
+        Sinv = numpy.dot(self.vis_factor, numpy.dot(z, self.vis_factor.T))
+        return numpy.dot(numpy.dot(numpy.pinv(Sinv), self.weights), self.hid_mean)
+
+
+class MeanCovarianceTrainer(Trainer):
+    '''
+    '''
