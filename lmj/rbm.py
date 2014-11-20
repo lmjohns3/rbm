@@ -163,11 +163,11 @@ class RBM(object):
 
     def hidden_expectation(self, visible, bias=0.):
         '''Given visible data, return the expected hidden unit values.'''
-        return sigmoid(np.dot(self.weights, visible.T).T + self.hid_bias + bias)
+        return sigmoid(np.dot(self.weights, visible.T) + self.hid_bias + bias)
 
     def visible_expectation(self, hidden, bias=0.):
         '''Given hidden states, return the expected visible unit values.'''
-        return self._visible(np.dot(hidden, self.weights) + self.vis_bias + bias)
+        return self._visible(np.dot(hidden.T, self.weights) + self.vis_bias.T + bias)
 
     def iter_passes(self, visible):
         '''Repeatedly pass the given visible layer up and then back down.
@@ -242,16 +242,17 @@ class Trainer(object):
         passes = self.rbm.iter_passes(visible_batch)
         v0, h0 = passes.next()
         v1, h1 = passes.next()
-
-        gw = (np.dot(h0.T, v0) - np.dot(h1.T, v1)) / len(visible_batch)
+        gw = (np.dot(h0, v0) - np.dot(h1, v1)) / len(visible_batch)
         gv = (v0 - v1).mean(axis=0)
-        gh = (h0 - h1).mean(axis=0)
+        gh = (h0 - h1).mean(axis=1)
         if self.target_sparsity is not None:
-            gh = self.target_sparsity - h0.mean(axis=0)
+            gh = self.target_sparsity - h0.mean(axis=1)
 
         logging.debug('displacement: %.3g, hidden std: %.3g',
                       np.linalg.norm(gv), h0.std(axis=1).mean())
-
+        # make sure we pass ndarrays
+        gv = gv.reshape(gv.shape[0],1)
+        gh = gh.reshape(gh.shape[0],1)
         return gw, gv, gh
 
     def apply_gradients(self, weights, visible, hidden, learning_rate=0.2):
